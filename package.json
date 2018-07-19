@@ -1,0 +1,16 @@
+{
+  "name": "birmscrawl",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node $NODE_DEBUG_OPTION crawler.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mongodb": "3.1.1",
+    "request": "^2.87.0",
+    "function-rate-limit": "^1.1.0"
+  }
+}
