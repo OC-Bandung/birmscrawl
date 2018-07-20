@@ -4,6 +4,12 @@ var request = require('request');
 var async = require("async");
 var hash = require('object-hash');
 
+/**
+ * Fetches one single contract from given uri parameter. If successful, saves the contract into mongodb
+ * If failed, upserts the error into mongo
+ * @param uri
+ * @param callback
+ */
 function requestUri(uri, callback) {
     request
         .get({
@@ -14,18 +20,25 @@ function requestUri(uri, callback) {
                 if (err != null || res.statusCode != 200) {
                     var data = {};
                     if(body==='undefined') {
+                        //this means there was probably a http failure without any body returned
                         data.error=err;
                     } else {
+                        //only first two errors from the stack are generally relevant
                         data.error = JSON.parse(body).slice(0,2);
                     }
                     data.uri = uri;
-                    updateError(data, callback);
+                    updateError(data, callback); //upserts error
                 } else {
-                    insertDoc(JSON.parse(body), callback);
+                    insertDoc(JSON.parse(body), callback); //all good, inserts contract/release into mongo
                 }
             });
 }
 
+/**
+ * Fetches the list of contracts from given url, gets each uri and invokes a request on the uri.
+ * This function is recursive and it will invoke itself for each next page until no more pages are available
+ * @param url
+ */
 function testList(url) {
     console.log("Requesting list " + url);
     request(url, function (error, response, body) {
@@ -37,7 +50,8 @@ function testList(url) {
             arr = Object.values(body.data);
         }
 
-        async.eachOfLimit(arr, 4, function (contractLink, key, callback) {
+        //we iterate in an async fashion the array, with a limit of 5 current "threads" so we do not choke the server
+        async.eachOfLimit(arr, 5, function (contractLink, key, callback) {
             console.log('Processing '+key+ " " + contractLink.uri);
             requestUri(contractLink.uri, callback);
         }, function (err) {
@@ -59,9 +73,14 @@ function testList(url) {
 }
 
 
+/**
+ * Insert contract into mongo
+ * @param doc the contract (release) to be inserted
+ * @param callback the callback when done
+ */
 const insertDoc = function (doc, callback) {
     MongoClient.connect(url, function (err, client) {
-        const db = client.db("brims");
+        const db = client.db("birms");
         const col = db.collection("release");
         col.insertOne(doc, function (err, result) {
                 callback();
@@ -70,9 +89,15 @@ const insertDoc = function (doc, callback) {
     });
 };
 
+/**
+ * Updates or inserts (upserts) an an error , adds to the uri array the new uri where the error happened again, if
+ * necessary
+ * @param doc the error document to be updated
+ * @param callback
+ */
 const updateError = function (doc, callback) {
     MongoClient.connect(url, function (err, client) {
-        const db = client.db("brims");
+        const db = client.db("birms");
         const col = db.collection("error");
         col.updateOne({md5: hash.MD5(doc.error)}
             , {$set: {error: doc.error}, $addToSet: {uri: doc.uri}}, {upsert: true}, function (err, result) {
@@ -83,7 +108,4 @@ const updateError = function (doc, callback) {
 };
 
 
-var uri = "https://birms.bandung.go.id/beta/api/contracts/year/2017";
-//var uri = "http://127.0.0.1:8000/api/contracts/year/2016";
-
-testList(uri);
+testList("https://birms.bandung.go.id/beta/api/contracts/year/2018");
