@@ -14,17 +14,18 @@ function requestUri(uri, callback) {
     request
         .get({
                 url: uri,
-                headers: {'Accept': 'application/json'}
+                headers: {'Accept': 'application/json'},
+                strictSSL: false
             },
             function (err, res, body) {
                 if (err != null || res.statusCode != 200) {
                     var data = {};
-                    if(body==='undefined') {
+                    if (body === 'undefined') {
                         //this means there was probably a http failure without any body returned
-                        data.error=err;
+                        data.error = err;
                     } else {
                         //only first two errors from the stack are generally relevant
-                        data.error = JSON.parse(body).slice(0,2);
+                        data.error = JSON.parse(body).slice(0, 2);
                     }
                     data.uri = uri;
                     updateError(data, callback); //upserts error
@@ -41,7 +42,7 @@ function requestUri(uri, callback) {
  */
 function testList(url) {
     console.log("Requesting list " + url);
-    request(url, function (error, response, body) {
+    request({url: url, strictSSL: false}, function (error, response, body) {
         var body = JSON.parse(body);
         var arr;
         if (Array.isArray(body.data)) {
@@ -52,11 +53,11 @@ function testList(url) {
 
         //we iterate in an async fashion the array, with a limit of 5 current "threads" so we do not choke the server
         async.eachOfLimit(arr, 5, function (contractLink, key, callback) {
-            console.log('Processing '+key+ " " + contractLink.uri);
+            console.log('Processing ' + key + " " + contractLink.uri);
             requestUri(contractLink.uri, callback);
         }, function (err) {
             // if any of the uri processing produced an error, err would equal that error
-                if (err) {
+            if (err) {
                 // One of the iterations produced an error.
                 // All processing will now stop.
                 console.log('Error during page processing');
@@ -83,9 +84,9 @@ const insertDoc = function (doc, callback) {
         const db = client.db("birms");
         const col = db.collection("release");
         col.insertOne(doc, function (err, result) {
-                callback();
-                client.close();
-            });
+            callback();
+            client.close();
+        });
     });
 };
 
@@ -108,4 +109,4 @@ const updateError = function (doc, callback) {
 };
 
 
-testList("https://birms.bandung.go.id/beta/api/contracts/year/2018");
+testList("https://birms.bandung.go.id/beta/api/contracts/year/2016");
