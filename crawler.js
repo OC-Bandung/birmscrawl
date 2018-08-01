@@ -81,6 +81,10 @@ function testList(url) {
  */
 const insertDoc = function (doc, callback) {
     MongoClient.connect(url, function (err, client) {
+        if (client == null) {
+            console.log(err);
+            throw "client is null";
+        }
         const db = client.db("birms");
         const col = db.collection("release");
         col.insertOne(doc, function (err, result) {
@@ -98,6 +102,10 @@ const insertDoc = function (doc, callback) {
  */
 const updateError = function (doc, callback) {
     MongoClient.connect(url, function (err, client) {
+        if (client == null) {
+            console.log(err);
+            throw "client is null";
+        }
         const db = client.db("birms");
         const col = db.collection("error");
         col.updateOne({md5: hash.MD5(doc.error)}
