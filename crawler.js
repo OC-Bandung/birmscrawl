@@ -82,7 +82,6 @@ function testList(url) {
  * @param callback the callback when done
  */
 const insertDoc = function (doc, callback) {
-        const db = client.db("birms");
         const col = db.collection("release");
         col.insertOne(doc, function (err, result) {
             callback();
