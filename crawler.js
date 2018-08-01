@@ -4,6 +4,8 @@ var request = require('request');
 var async = require("async");
 var hash = require('object-hash');
 
+var db;
+
 /**
  * Fetches one single contract from given uri parameter. If successful, saves the contract into mongodb
  * If failed, upserts the error into mongo
@@ -80,18 +82,11 @@ function testList(url) {
  * @param callback the callback when done
  */
 const insertDoc = function (doc, callback) {
-    MongoClient.connect(url, function (err, client) {
-        if (client == null) {
-            console.log(err);
-            throw "client is null";
-        }
         const db = client.db("birms");
         const col = db.collection("release");
         col.insertOne(doc, function (err, result) {
             callback();
-            client.close();
         });
-    });
 };
 
 /**
@@ -101,20 +96,14 @@ const insertDoc = function (doc, callback) {
  * @param callback
  */
 const updateError = function (doc, callback) {
-    MongoClient.connect(url, function (err, client) {
-        if (client == null) {
-            console.log(err);
-            throw "client is null";
-        }
-        const db = client.db("birms");
         const col = db.collection("error");
         col.updateOne({md5: hash.MD5(doc.error)}
             , {$set: {error: doc.error}, $addToSet: {uri: doc.uri}}, {upsert: true}, function (err, result) {
                 callback();
-                client.close();
             });
-    });
 };
 
-
-testList("https://birms.bandung.go.id/beta/api/contracts/year/2016");
+MongoClient.connect(url, function (err, client) {
+        db = client.db("birms");
+        testList("https://birms.bandung.go.id/beta/api/contracts/year/2016");
+}
