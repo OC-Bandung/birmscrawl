@@ -106,4 +106,4 @@ const updateError = function (doc, callback) {
 MongoClient.connect(url, function (err, client) {
         db = client.db("birms");
         testList("https://birms.bandung.go.id/beta/api/contracts/year/2016");
-}
+});
