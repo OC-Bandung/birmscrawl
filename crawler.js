@@ -20,7 +20,7 @@ function requestUri(uri, callback) {
             function (err, res, body) {
                 if (err != null || res.statusCode != 200) {
                     var data = {};
-                    if (body === 'undefined') {
+                    if (typeof body === 'undefined') {
                         //this means there was probably a http failure without any body returned
                         data.error = err;
                     } else {
