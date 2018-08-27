@@ -20,7 +20,7 @@ function requestUri(uri, callback) {
                 strictSSL: false
             },
             function (err, res, body) {
-                if (err != null || res.statusCode != 200) {
+                if (err != null || res.statusCode !== 200) {
                     var data = {};
                     if (typeof body === 'undefined') {
                         //this means there was probably a http failure without any body returned
@@ -32,7 +32,7 @@ function requestUri(uri, callback) {
                     data.uri = uri;
                     updateError(data, callback); //upserts error
                 } else {
-                    insertDoc(JSON.parse(body), callback); //all good, inserts contract/release into mongo
+                    upsertDoc(JSON.parse(body), callback); //all good, inserts contract/release into mongo
                 }
             });
 }
@@ -40,12 +40,13 @@ function requestUri(uri, callback) {
 /**
  * Fetches the list of contracts from given url, gets each uri and invokes a request on the uri.
  * This function is recursive and it will invoke itself for each next page until no more pages are available
- * @param url
+ * @param url url towards the list of ocds contracts
+ * @param client reference to mongo client, used to close mongo connection when done
  */
-function testList(url) {
+function testList(url, client) {
     console.log("Requesting list " + url);
-    request({url: url, strictSSL: false}, function (error, response, body) {
-        var body = JSON.parse(body);
+    request({url: url, strictSSL: false}, function (error, response, b) {
+        var body = JSON.parse(b);
         var arr;
         if (Array.isArray(body.data)) {
             arr = body.data;
@@ -68,6 +69,9 @@ function testList(url) {
                 //move to next page
                 if (body.next_page_url != null) {
                     testList(body.next_page_url);
+                } else {
+                    client.close();
+                    process.exit();
                 }
             }
         });
@@ -77,13 +81,13 @@ function testList(url) {
 
 
 /**
- * Insert contract into mongo
+ * Upserts contract into mongo
  * @param doc the contract (release) to be inserted
  * @param callback the callback when done
  */
-const insertDoc = function (doc, callback) {
+const upsertDoc = function (doc, callback) {
         const col = db.collection("release");
-        col.insertOne(doc, function (err, result) {
+        col.replaceOne({ocid: doc.ocid}, doc,  {upsert: true}, function (err, result) {
             callback();
         });
 };
@@ -102,7 +106,19 @@ const updateError = function (doc, callback) {
             });
 };
 
+const prepareDb = function (callback) {
+    const col = db.collection("release");
+    col.createIndex({"ocid": 1}, {unique: true},
+        function (err, result) {
+            console.log("Index creation output "+result);
+            callback();
+        });
+};
+
 MongoClient.connect(url, function (err, client) {
         db = client.db("birms");
-        testList("https://birms.bandung.go.id/beta/api/contracts/year/2016");
+        prepareDb(function callback() {
+            testList("https://birms.bandung.go.id/beta/api/contracts/year/2016?page=306", client);
+        });
+
 });
