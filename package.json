@@ -1,20 +1,19 @@
 {
   "name": "birmscrawl",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Crawler that fetches contracts from contract list api , one by one and tests if errors are generating while conmtract is printed as json.",
+  "main": "crawler.js",
   "scripts": {
     "start": "node crawler.js",
     "debug": "node $NODE_DEBUG_OPTION crawler.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "mpostelnicu",
+  "license": "MIT",
   "dependencies": {
     "mongodb": "^3.1.4",
     "request": "^2.87.0",
     "async": "^2.6.1",
     "object-hash": "^1.3.0",
-    "webpack": "^4.17.1",
-    "webpack-cli": "^3.1.0"
+    "is-url": "^1.2.4"
   }
 }

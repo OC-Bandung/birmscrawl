@@ -1,8 +1,8 @@
 var MongoClient = require("mongodb").MongoClient;
-var url = 'mongodb://localhost:27017';
 var request = require('request');
 var async = require("async");
 var hash = require('object-hash');
+var isUrl = require('is-url');
 
 var db;
 
@@ -86,10 +86,10 @@ function testList(url, client) {
  * @param callback the callback when done
  */
 const upsertDoc = function (doc, callback) {
-        const col = db.collection("release");
-        col.replaceOne({ocid: doc.ocid}, doc,  {upsert: true}, function (err, result) {
-            callback();
-        });
+    const col = db.collection("release");
+    col.replaceOne({ocid: doc.ocid}, doc, {upsert: true}, function (err, result) {
+        callback();
+    });
 };
 
 /**
@@ -99,26 +99,31 @@ const upsertDoc = function (doc, callback) {
  * @param callback
  */
 const updateError = function (doc, callback) {
-        const col = db.collection("error");
-        col.updateOne({md5: hash.MD5(doc.error)}
-            , {$set: {error: doc.error}, $addToSet: {uri: doc.uri}}, {upsert: true}, function (err, result) {
-                callback();
-            });
+    const col = db.collection("error");
+    col.updateOne({md5: hash.MD5(doc.error)}
+        , {$set: {error: doc.error}, $addToSet: {uri: doc.uri}}, {upsert: true}, function (err, result) {
+            callback();
+        });
 };
 
 const prepareDb = function (callback) {
     const col = db.collection("release");
     col.createIndex({"ocid": 1}, {unique: true},
         function (err, result) {
-            console.log("Index creation output "+result);
             callback();
         });
 };
 
-MongoClient.connect(url, function (err, client) {
+
+if (isUrl(process.argv[3]) && process.argv[2] !== undefined) {
+    MongoClient.connect(process.argv[2], {useNewUrlParser: true}, function (err, client) {
         db = client.db("birms");
         prepareDb(function callback() {
-            testList("https://birms.bandung.go.id/beta/api/contracts/year/2016?page=306", client);
+            testList(process.argv[3], client);
         });
+    });
+} else {
+    console.log("Usage crawler.js [mongoUrl] [birmsUrl]");
+    process.exit();
+}
 
-});
