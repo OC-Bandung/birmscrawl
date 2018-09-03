@@ -68,7 +68,7 @@ function testList(url, client) {
                 console.log('All urls have been processed successfully for ' + url);
                 //move to next page
                 if (body.next_page_url != null) {
-                    testList(body.next_page_url);
+                    testList(body.next_page_url, client);
                 } else {
                     client.close();
                     process.exit();
