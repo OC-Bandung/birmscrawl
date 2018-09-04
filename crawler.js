@@ -116,8 +116,14 @@ const updateError = function (doc, callback) {
 };
 
 const prepareDb = function (callback) {
-    const col = db.collection("release");
-    col.createIndex({"ocid": 1}, {unique: true},
+    const rcol = db.collection("release");
+    rcol.createIndex({"ocid": 1}, {unique: true},
+        function (err, result) {
+            callback();
+        });
+
+    const ecol = db.collection("error");
+    ecol.createIndex({"md5": 1}, {unique: true},
         function (err, result) {
             callback();
         });
