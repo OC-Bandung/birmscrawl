@@ -20,6 +20,9 @@ function requestUri(uri, callback) {
                 strictSSL: false
             },
             function (err, res, body) {
+                if (uri.includes('43122')) {
+                    console.log(uri);
+                }
                 if (err != null || res.statusCode !== 200) {
                     var data = {};
                     if (typeof body === 'undefined') {
@@ -27,7 +30,7 @@ function requestUri(uri, callback) {
                         data.error = err;
                     } else {
                         //only first two errors from the stack are generally relevant
-                        data.error = JSON.parse(body).slice(0, 2);
+                        data.error = JSON.parse(body.replace(/\$ref/g, 'ref').replace(/\$schema/g, 'schema')).slice(0, 2);
                     }
                     data.uri = uri;
                     updateError(data, callback); //upserts error
@@ -88,6 +91,9 @@ function testList(url, client) {
 const upsertDoc = function (doc, callback) {
     const col = db.collection("release");
     col.replaceOne({ocid: doc.ocid}, doc, {upsert: true}, function (err, result) {
+        if (err !== null) {
+            throw "Error upserting doc " + doc.ocid + " " + err;
+        }
         callback();
     });
 };
@@ -102,6 +108,9 @@ const updateError = function (doc, callback) {
     const col = db.collection("error");
     col.updateOne({md5: hash.MD5(doc.error)}
         , {$set: {error: doc.error}, $addToSet: {uri: doc.uri}}, {upsert: true}, function (err, result) {
+            if (err !== null) {
+                throw "Error upserting error for " + JSON.stringify(doc) + " " + err;
+            }
             callback();
         });
 };
