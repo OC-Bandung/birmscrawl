@@ -119,13 +119,17 @@ const prepareDb = function (callback) {
     const rcol = db.collection("release");
     rcol.createIndex({"ocid": 1}, {unique: true},
         function (err, result) {
-            callback();
-        });
-
-    const ecol = db.collection("error");
-    ecol.createIndex({"md5": 1}, {unique: true},
-        function (err, result) {
-            callback();
+            if (err !== null) {
+                throw err;
+            }
+            const ecol = db.collection("error");
+            ecol.createIndex({"md5": 1}, {unique: true},
+                function (err, result) {
+                    if (err !== null) {
+                        throw err;
+                    }
+                    callback();
+                });
         });
 };
 
