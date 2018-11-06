@@ -12,7 +12,7 @@ var db;
  * @param uri
  * @param callback
  */
-function requestUri(uri, callback) {
+function requestUri(uri, callback, collection) {
     request
         .get({
                 url: uri,
@@ -35,7 +35,7 @@ function requestUri(uri, callback) {
                     data.uri = uri;
                     updateError(data, callback); //upserts error
                 } else {
-                    upsertDoc(JSON.parse(body), callback); //all good, inserts contract/release into mongo
+                    upsertDoc(JSON.parse(body), callback, collection); //all good, inserts contract/release into mongo
                 }
             });
 }
@@ -45,8 +45,9 @@ function requestUri(uri, callback) {
  * This function is recursive and it will invoke itself for each next page until no more pages are available
  * @param url url towards the list of ocds contracts
  * @param client reference to mongo client, used to close mongo connection when done
+ * @param collection the type of the content - eg 'release', 'package'
  */
-function testList(url, client) {
+function testList(url, client, collection) {
     console.log("Requesting list " + url);
     request({url: url, strictSSL: false}, function (error, response, b) {
         var body = JSON.parse(b);
@@ -60,7 +61,7 @@ function testList(url, client) {
         //we iterate in an async fashion the array, with a limit of 5 current "threads" so we do not choke the server
         async.eachOfLimit(arr, 5, function (contractLink, key, callback) {
             console.log('Processing ' + key + " " + contractLink.uri);
-            requestUri(contractLink.uri, callback);
+            requestUri(contractLink.uri, callback, collection);
         }, function (err) {
             // if any of the uri processing produced an error, err would equal that error
             if (err) {
@@ -71,7 +72,7 @@ function testList(url, client) {
                 console.log('All urls have been processed successfully for ' + url);
                 //move to next page
                 if (body.next_page_url != null) {
-                    testList(body.next_page_url, client);
+                    testList(body.next_page_url, client, collection);
                 } else {
                     client.close();
                     process.exit();
@@ -88,9 +89,10 @@ function testList(url, client) {
  * @param doc the contract (release) to be inserted
  * @param callback the callback when done
  */
-const upsertDoc = function (doc, callback) {
-    const col = db.collection("release");
-    col.replaceOne({ocid: doc.ocid}, doc, {upsert: true}, function (err, result) {
+const upsertDoc = function (doc, callback, collection) {
+    const col = db.collection(collection);
+    const upsertId = (collection === "release" ? {ocid: doc.ocid} : {uri: doc.uri});
+    col.replaceOne(upsertId, doc, {upsert: true}, function (err, result) {
         if (err !== null) {
             throw "Error upserting doc " + doc.ocid + " " + err;
         }
@@ -115,9 +117,11 @@ const updateError = function (doc, callback) {
         });
 };
 
-const prepareDb = function (callback) {
-    const rcol = db.collection("release");
-    rcol.createIndex({"ocid": 1}, {unique: true},
+const prepareDb = function (callback, collection) {
+    const rcol = db.collection(collection);
+    const iname = (collection === "release" ? "ocid" : "releases.ocid");
+
+    rcol.createIndex({[iname]: 1}, {unique: true},
         function (err, result) {
             if (err !== null) {
                 throw err;
@@ -128,18 +132,24 @@ const prepareDb = function (callback) {
                     if (err !== null) {
                         throw err;
                     }
-                    callback();
+                    if (collection !== "release") {
+                        rcol.createIndex({uri: 1}, {unique: true}, callback);
+                    } else {
+                        callback();
+                    }
                 });
         });
 };
 
 
 if (isUrl(process.argv[3]) && process.argv[2] !== undefined) {
+    const url = process.argv[3];
+    const collection = (process.argv[4] === undefined ? "release" : process.argv[4]);
     MongoClient.connect(process.argv[2], {useNewUrlParser: true}, function (err, client) {
         db = client.db("birms");
         prepareDb(function callback() {
-            testList(process.argv[3], client);
-        });
+            testList(url, client, collection);
+        }, collection);
     });
 } else {
     console.log("Usage crawler.js [mongoUrl] [birmsUrl]");
