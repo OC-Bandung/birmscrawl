@@ -18,3 +18,8 @@ npm start [mongoUrl] [birmsUrl]
 
 Example: `npm start mongodb+srv://user:password@cluster0-roge5.mongodb.net/birms https://birms.bandung.go.id/beta/api/contracts/year/2016`
 ...will fetch all 2016 contracts from the given URL. You must supply user and password to connect to mongodb Atlas Birms Instance.
+
+Example for fetching packages
+
+Example: `npm start mongodb+srv://user:password@cluster0-roge5.mongodb.net/birms http://birms.bandung.go.id/beta/api/packages/year/2016 package`
+...will fetch all 2016 release-packages from the given URL. You must supply user and password to connect to mongodb Atlas Birms Instance.
