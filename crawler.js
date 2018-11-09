@@ -4,6 +4,7 @@ var async = require("async");
 var hash = require('object-hash');
 var isUrl = require('is-url');
 
+const asyncQueue = 5;
 var db;
 
 /**
@@ -59,7 +60,7 @@ function testList(url, client, collection) {
         }
 
         //we iterate in an async fashion the array, with a limit of 5 current "threads" so we do not choke the server
-        async.eachOfLimit(arr, 5, function (contractLink, key, callback) {
+        async.eachOfLimit(arr, asyncQueue, function (contractLink, key, callback) {
             console.log('Processing ' + key + " " + contractLink.uri);
             requestUri(contractLink.uri, callback, collection);
         }, function (err) {
@@ -100,6 +101,36 @@ const upsertDoc = function (doc, callback, collection) {
     });
 };
 
+
+const retryErrorLog = function () {
+    const col = db.collection("error");
+    col.aggregate([{$unwind: "$uri"}, {$project: {uri: 1, _id: 0}}, {$group: {_id: "$uri"}}]).toArray()
+        .then(arr => {
+            async.eachOfLimit(arr, asyncQueue, function (uriObj, key, callback) {
+                console.log('Processing ' + key + " " + uriObj._id);
+                requestUri(uriObj._id, callback, uriObj._id.includes("package") ? "package" : "release");
+            }, function (err) {
+                // if any of the uri processing produced an error, err would equal that error
+                if (err) {
+                    // One of the iterations produced an error.
+                    // All processing will now stop.
+                    console.log('Fatal errors during processing!');
+                } else {
+                    console.log('All urls have been processed successfully!');
+                    process.exit();
+                }
+            });
+        });
+};
+
+const deleteErrorLog = function() {
+    const col = db.collection("error");
+    col.remove({}, function(callback) {
+        console.log('Removed error log!');
+        process.exit();
+    });
+};
+
 /**
  * Updates or inserts (upserts) an an error , adds to the uri array the new uri where the error happened again, if
  * necessary
@@ -118,6 +149,7 @@ const updateError = function (doc, callback) {
 };
 
 const prepareDb = function (callback, collection) {
+
     const rcol = db.collection(collection);
     const iname = (collection === "release" ? "ocid" : "releases.ocid");
 
@@ -142,17 +174,36 @@ const prepareDb = function (callback, collection) {
 };
 
 
-if (isUrl(process.argv[3]) && process.argv[2] !== undefined) {
-    const url = process.argv[3];
-    const collection = (process.argv[4] === undefined ? "release" : process.argv[4]);
-    MongoClient.connect(process.argv[2], {useNewUrlParser: true}, function (err, client) {
-        db = client.db("birms");
-        prepareDb(function callback() {
-            testList(url, client, collection);
-        }, collection);
-    });
+
+//argv[2] = mongourl
+//argv[3] = fetch url | retry
+//argv[4] = collection
+if (process.argv[2] !== undefined) {
+    if (isUrl(process.argv[3])) {
+        const url = process.argv[3];
+        const collection = (process.argv[4] === undefined ? "release" : process.argv[4]);
+        MongoClient.connect(process.argv[2], {useNewUrlParser: true}, function (err, client) {
+            db = client.db("birms");
+            prepareDb(function callback() {
+                testList(url, client, collection);
+            }, collection);
+        });
+    } else {
+        if (process.argv[3] === "retry") {
+            console.log("Retrying failed urls from the error log...");
+            MongoClient.connect(process.argv[2], {useNewUrlParser: true}, function (err, client) {
+                db = client.db("birms");
+                retryErrorLog();
+            });
+        }
+
+        if (process.argv[3] === "clean") {
+            MongoClient.connect(process.argv[2], {useNewUrlParser: true}, function (err, client) {
+                db = client.db("birms");
+                deleteErrorLog();
+            });
+        }
+    }
 } else {
-    console.log("Usage crawler.js [mongoUrl] [birmsUrl]");
     process.exit();
 }
-
